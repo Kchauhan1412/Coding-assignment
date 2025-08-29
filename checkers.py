@@ -104,20 +104,27 @@ def find_simple_move(state: BoardState) -> Optional[Tuple[Square, Square]]:
 
 
 async def make_moves(page: Page, number_of_moves: int) -> None:
-    for _ in range(number_of_moves):
-        # Wait until it is our turn.
-        await wait_for_turn(page)
+    # Ensure the board images are present before the very first move
+    await page.wait_for_selector("#board img[name^=space]")
+
+    for i in range(number_of_moves):
+        # For the first move, don't wait for the "Make a move" banner.
+        # The site initially shows "Select an orange piece to move.", and it's already our turn.
+        if i > 0:
+            await wait_for_turn(page)
+
         # Take a snapshot of the current board.
         state = await BoardState.from_page(page)
-        move = find_capture_move(state)
-        if not move:
-            move = find_simple_move(state)
+
+        move = find_capture_move(state) or find_simple_move(state)
         if not move:
             print("No moves available , ending game.")
             return
-        (from_sq, to_sq) = move
+
+        from_sq, to_sq = move
         await perform_move(page, from_sq, to_sq)
 
+        # tiny pause to let the UI update / opponent respond
         await page.wait_for_timeout(500)
 
 
